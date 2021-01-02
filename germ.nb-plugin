@@ -167,7 +167,6 @@ _germ() {
 			do
 				_prepend="${_prepend} ${__tag} "
 			done
-			echo "${_prepend}"	
 			
 			# trim trailing whitespace
 			_prepend="${_prepend%"${_prepend##*[![:space:]]}"}"
