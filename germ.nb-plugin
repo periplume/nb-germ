@@ -5,7 +5,7 @@
 # A plugin for `nb` providing a "germ" notebook interface for easy idea entry
 #
 # Install with:
-#   nb plugin install https://github.com/periplume/nb-germ/blob/master/nb-germ.plugin
+#   nb plugin install https://github.com/periplume/nb-germ/blob/master/germ.nb-plugin
 #
 # https://github.com/xwmx/nb
 ###############################################################################
