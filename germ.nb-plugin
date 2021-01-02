@@ -18,7 +18,7 @@ _subcommands describe "germ" <<HEREDOC
 Usage:
   nb germ
   nb germ add [<tag1> <tag...>]
-	nb germ edit (<id> | <filename> | <path> | <title>)
+  nb germ edit (<id> | <filename> | <path> | <title>)
   nb germ init
   nb germ (list | ls)
   nb germ print [last|<index>]
@@ -70,7 +70,7 @@ _germ() {
 					# define all subcommands per germ command here
 					case "${_germ_command}" in
 						add)
-							if [[ "${__arg:-}" =~ ^special$ ]]
+							if [[ "${__arg:-}" =~ ^reserved$ ]]
 							then
 								_germ_subcommand="${__arg}"
 							else
@@ -118,7 +118,7 @@ _germ() {
 							fi
 							;;
 						tags)
-							if [[ "${__arg:-}" =~ ^reserved$ ]]
+							if [[ "${__arg:-}" =~ ^add$|^edit$|^list$ ]]
 							then
 								_germ_subcommand="${__arg}"
 							else
@@ -176,15 +176,15 @@ _germ() {
 			nb germ:add --content "${_prepend}" --edit -f "${_timestamp}.txt"
 			
 			# then append the source tag to the file
-			__source_tag=$(nb germ:show 1 --no-color --print | head -1 | cut -f1 -d:)
+			__source_tag=$(nb germ:show sourcesdb.txt --no-color --print | head -1 | cut -f1 -d:)
 			printf "\\n#src ${__source_tag}\\n" | nb germ:edit "${_timestamp}.txt"	
 
 			# then append the final tag list to the tagsdb.txt
 			__tag_list=$(nb germ:show "${_timestamp}.txt" --no-color --print | grep ^#tags | cut -f2 -d'#')
-			printf "#ts:${_timestamp} ${__tag_list}\\n" | nb germ:edit 2	
+			printf "#ts:${_timestamp} ${__tag_list}\\n" | nb germ:edit tagsdb.txt	
 
 			# then touch the sourcesdb.txt file to force it to index 1 (for display)
-			printf "\\n" | nb germ:edit 1
+			printf "\\n" | nb germ:edit sourcesdb.txt
 			;;
 
 		edit)
@@ -241,7 +241,7 @@ _germ() {
 			then
 				printf "use 'germ source' to add and manage source media list:\\n"
 				printf "usage: 'germ source add'\\n"
-				nb germ:show --print 1
+				nb germ:show --print sourcesdb.txt
 				exit 0
 			fi
 			case "${_germ_subcommand:-}" in
@@ -345,21 +345,22 @@ _germ() {
 					__new_source_line="${__new_source}.${__new_source_date}:${__new_source_description}"
 					if [[ "${__new_source_default}" = "y" ]]
 					then
-						nb germ:edit 1 --prepend --content "${__new_source_line}" 
+						#nb germ:edit 1 --prepend --content "${__new_source_line}" 
+						nb germ:edit sourcesdb.txt --prepend --content "${__new_source_line}" 
 					else
-						printf "${__new_source_line}\\n" |  nb germ:edit 1
+						printf "${__new_source_line}\\n" |  nb germ:edit sourcesdb.txt
 					fi
 					;;
 				edit)
-					nb germ:edit 1
+					nb germ:edit sourcesdb.txt
 					;;
 				print)
 					case "${_germ_subcommand_args:-}" in
 						default)
-							nb germ:show -p 1 | head -1
+							nb germ:show -p sourcesdb.txt | head -1
 							;;
 						*)
-							nb germ:show -p 1
+							nb germ:show -p sourcesdb.txt
 							;;
 					esac
 					;;
@@ -377,10 +378,10 @@ _germ() {
 					echo "edit tag list?"
 					;;
 				list)
-					nb germ:show 2 -p
+					nb germ:show tagsdb.txt -p
 					;;
 				*)
-					nb germ:show 2 -p
+					nb germ:show tagsdb.txt -p
 					;;
 			esac
 			;;
