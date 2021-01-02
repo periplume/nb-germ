@@ -1,0 +1,415 @@
+#!/usr/bin/env bash
+###############################################################################
+# germ
+#
+# A plugin for `nb` providing a "germ" notebook interface for easy idea entry
+#
+# Install with:
+#   nb plugin install https://github.com/blah
+#
+# https://github.com/xwmx/nb
+###############################################################################
+
+# Add the new subcommand names with `_subcommands add <name>`.
+_subcommands add "germ"
+
+# Define help and usage text with `_subcommands describe <subcommand> <usage>`.
+_subcommands describe "germ" <<HEREDOC
+Usage:
+  nb germ
+  nb germ add [<tag1> <tag...>]
+	nb germ edit (<id> | <filename> | <path> | <title>)
+  nb germ init
+  nb germ list
+  nb germ print [last|<index>]
+  nb germ promote
+  nb germ source (add|edit|print)
+  nb germ tags (add|edit|list)
+  nb germ thresh
+
+Options:
+  --force
+  --noprompt
+
+Description:
+	Create a new file in germ notebook with tag(s) prepended
+
+HEREDOC
+
+_germ() {
+	local _timestamp=$(date '+%F--%I-%M-%S-%P')
+	local _force=0
+	local _prompt=1
+	local _germ_command=
+	local _germ_subcommand=
+	local _germ_subcommand_args=()
+
+	# process flags and germ commands first
+	for __arg in "${@}"
+	do
+		case "${__arg}" in
+			--force)
+				_force=1
+				;;
+			--noprompt)
+				_prompt=0
+				;;
+			--help)
+				_help ${_ME}
+				;;
+			*)
+				if [[ -z "${_germ_command}" ]]
+				then
+					# set all germ commands here
+					if [[ "${__arg}" =~	^list$|^ls$|^init$|^add$|^edit$|^source$|^tags$|^thresh$|^promote$|^print$ ]]
+					then
+						_germ_command="${__arg}"
+					fi
+				elif [[ ! -z "${_germ_command}" ]] && [[ -z "${_germ_subcommand}" ]]
+				then
+					# set all subcommand options here
+					case "${_germ_command}" in
+						add)
+							if [[ "${__arg:-}" =~ ^special$ ]]
+							then
+								_germ_subcommand="${__arg}"
+							else
+								_germ_subcommand_args+=("${__arg}")
+							fi
+							;;
+						edit)
+							if [[ "${__arg:-}" =~ ^reserved$ ]]
+							then
+								_germ_subcommand="${__arg}"
+							else
+								_germ_subcommand_args+=("${__arg}")
+							fi
+							;;
+						init)
+							if [[ "${__arg:-}" =~ ^reserved$ ]]
+							then
+								_germ_subcommand="${__arg}"
+							else
+								_germ_subcommand_args+=("${__arg}")
+							fi
+							;;
+						print)
+							if [[ "${__arg:-}" =~ ^reserved$ ]]
+							then
+								_germ_subcommand="${__arg}"
+							else
+								_germ_subcommand_args+=("${__arg}")
+							fi
+							;;
+						promote)
+							if [[ "${__arg:-}" =~ ^reserved$ ]]
+							then
+								_germ_subcommand="${__arg}"
+							else
+								_germ_subcommand_args+=("${__arg}")
+							fi
+							;;
+						source)
+							if [[ "${__arg:-}" =~ ^add$|^edit$|^print$ ]]
+							then
+								_germ_subcommand="${__arg}"
+							else
+								_germ_subcommand_args+=("${__arg}")
+							fi
+							;;
+						tags)
+							if [[ "${__arg:-}" =~ ^reserved$ ]]
+							then
+								_germ_subcommand="${__arg}"
+							else
+								_germ_subcommand_args+=("${__arg}")
+							fi
+							;;
+						thresh)
+							if [[ "${__arg:-}" =~ ^reserved$ ]]
+							then
+								_germ_subcommand="${__arg}"
+							else
+								_germ_subcommand_args+=("${__arg}")
+							fi
+							;;
+					esac
+				else
+					_germ_subcommand_args+=("${__arg}")
+				fi
+				;;
+		esac
+	done
+
+	# print help if no arguments (or illegal command)
+  [[ -z "${_germ_command:-}" ]] && _help -p "germ" 1>&2 && exit
+
+  # process subcommand args
+  case "${_germ_command}" in
+    add)
+			local _prepend="#tags"
+			local _taglist="${_germ_subcommand_args[@]:-}"
+			
+			# make sure germ has been initialized		
+			if ! (_notebooks show germ &>/dev/null)
+			then
+        _exit_1 printf "germ notebook missing...run 'germ init'\\n"
+			fi
+
+			# check for tags in the args
+			if [[ -z "${_taglist:-}" ]]
+			then
+				_taglist="untagged"
+			fi
+
+			# format tag list with hash prefix (defined as $_prepend)
+			for __tag in "${_taglist[@]}"
+			do
+				_prepend="${_prepend} ${__tag} "
+			done
+			echo "${_prepend}"	
+			
+			# trim trailing whitespace
+			_prepend="${_prepend%"${_prepend##*[![:space:]]}"}"
+		
+			# create a new entry
+			nb germ:add --content "${_prepend}" --edit -f "${_timestamp}.txt"
+			
+			# then append the source tag to the file
+			__source_tag=$(nb germ:show 1 --no-color --print | head -1 | cut -f1 -d:)
+			printf "\\n#src ${__source_tag}\\n" | nb germ:edit "${_timestamp}.txt"	
+
+			# then append the final tag list to the tagsdb.txt
+			__tag_list=$(nb germ:show "${_timestamp}.txt" --no-color --print | grep ^#tags | cut -f2 -d'#')
+			printf "#ts:${_timestamp} ${__tag_list}\\n" | nb germ:edit 2	
+
+			# then touch the sourcesdb.txt file to force it to index 1 (for display)
+			printf "\\n" | nb germ:edit 1
+			;;
+
+		edit)
+      echo "edit: check for _force and _interactive"
+      echo "edit: open in editor" 
+      exit
+      ;;
+    init)
+      if ((_prompt)) && ! ((_force))
+      then
+        while true
+        do
+          IFS='' read -r -e -d $'\n' -p "Initialize germ notebook? [Yn] " __yn
+          case ${__yn:-y} in
+            [Yy]*)
+              break
+              ;;
+            *)
+              printf "Exiting...\\n"
+              exit 0
+              ;;
+          esac
+        done
+      fi
+      # check for germ notbook
+      if (_notebooks show germ &>/dev/null)
+      then
+        _exit_1 printf "germ notebook exists\\n"
+        exit 1
+      else
+        printf "Creating germ notebooki...\\n"
+        _notebooks add germ
+        printf "Creating sources database file...\\n"
+        nb germ:add --content "self:direct entry" -f sourcesdb.txt
+				nb germ:add --content "tags" -f tagsdb.txt
+        printf "To add additional sources, run 'nb germ source add'.\\n"
+				printf "To add content, run 'nb germ add [optional tag list]'.\\n"
+      fi
+      exit
+      ;;
+		list|ls)
+			nb germ:ls
+			;;
+    print)
+      echo "print: not yet implemented"
+      exit
+      ;;
+    promote)
+      echo "promote: not yet implemented"
+      exit
+      ;;
+   	source)
+			if [[ -z "${_germ_subcommand:-}" ]]
+			then
+				printf "use 'germ source' to add and manage source media list:\\n"
+				printf "usage: 'germ source add'\\n"
+				nb germ:show --print 1
+				exit 0
+			fi
+			case "${_germ_subcommand:-}" in
+				add)
+					if ((_prompt))
+					then
+						# get source name
+						while read -r -e -d $'\n' -p "name? " __new_source
+						do
+							case "${__new_source}" in
+								help|\?)
+									echo "enter the name of the source media type, a-z and 0-9 only"
+									echo "example:  self        (for direct entry [default])"
+									echo "example:  lgb         (for littlegreenbook pocket notebooks)"
+									echo "example:  leaf        (for loose leaf paper scraps)"
+									echo "example:  moleskin    (for little black moleskins)"
+									echo "example:  composition (for college composition notebooks)"
+									;;
+								quit|q)
+									echo "Quitting..."
+									exit 0
+									;;
+								*)
+									if [[ "${__new_source}" =~ ^[a-z0-9]{3,10}$ ]]
+									then
+										break
+									else
+										echo "'${__new_source}' is ILLEGAL, lower case and numbers only, 3-10 long"
+									fi
+									;;
+							esac
+						done
+						# get source date
+						while read -r -e -d $'\n' -p "date? " __new_source_date
+						do
+							case "${__new_source_date}" in
+								help|\?)
+									echo "enter a date in the form of YYYY-MM-DD eg 2020-10-20"
+									echo "enter 'today' as a shortcut for $(date +%F)"
+									;;
+								quit|q)
+									echo "Quitting..."
+									exit 0
+									;;
+								today|now)
+									if [[ "${__new_source_date}" == "today" ]]
+									then
+										__new_source_date=$(date +%F)
+										break
+									fi
+									;;
+								*)
+									if [[ "${__new_source_date}" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]
+									then
+										break
+									else
+										echo "'${__new_source_date}' is ILLEGAL"
+									fi
+									;;
+							esac
+						done
+						# get source description
+						while read -r -e -d $'\n' -p "description? " __new_source_description
+						do
+							case "${__new_source_description}" in
+								help|\?)
+									echo "enter source description detail"
+									echo "example: littlegreenbook 20 oct 2020"
+									;;
+								quit|q)
+									echo "Quitting..."
+									exit 0
+									;;
+								*)
+									if [[ "${__new_source_description}" =~ ^([[:alnum:]]*|[[:space:]]?$) ]]
+									then
+										break
+									else
+										echo "'${__new_source_description}' is ILLEGAL"
+									fi
+									;;
+							esac
+						done
+						# make default
+						while read -n 1 -r -e -d $'\n' -p "make default? Y/n " __new_source_default
+						do
+							case "${__new_source_default:-y}" in
+								y|Y)
+									__new_source_default="y"
+									break
+									;;
+								n|N)
+									break
+									;;
+								*)
+									echo "make default, y or n?"
+									;;
+							esac
+						done
+					fi
+					__new_source_line="${__new_source}.${__new_source_date}:${__new_source_description}"
+					#_temp="$(mktemp)"
+					if [[ "${__new_source_default}" = "y" ]]
+					then
+						#printf "${__new_source_line}\\n" >> "${_temp}"
+						#nb germ:show 1 --no-color --print >> "${_temp}"
+						nb germ:edit 1 --prepend --content "${__new_source_line}" 
+					else
+						#nb germ:show 1 --no-color --print >> "${_temp}"
+						#printf "${__new_source_line}\\n" >> "${_temp}"
+						printf "${__new_source_line}\\n" |  nb germ:edit 1
+					fi
+					#cat "${_temp}" > "$(nb germ:show 1 --path)"
+					#nb git commit
+					;;
+				edit)
+					nb germ:edit 1
+					;;
+				print)
+					case "${_germ_subcommand_args:-}" in
+						default)
+							nb germ:show -p 1 | head -1
+							;;
+						*)
+							nb germ:show -p 1
+							;;
+					esac
+					;;
+				*)
+					_exit_1 printf "error, illegal command\n"
+					;;
+			esac
+      ;;
+    tags)
+			case "${_germ_subcommand:-}" in
+				add)
+					echo "add tags to ?"
+					;;
+				edit)
+					echo "edit tag list?"
+					;;
+				list)
+					nb germ:show 2 -p
+					;;
+				*)
+					nb germ:show 2 -p
+					;;
+			esac
+			;;
+    thresh)
+      echo "thresh: not implemented"
+      exit
+      ;;
+    *)
+      _exit_1 printf "Error: germ command '$_germ_command' unknown.\\n"
+      exit 1
+  esac
+
+# debug
+#echo "=====debug======"
+#echo "timestamp=${_timestamp}"
+#echo "arg_list=${@}"
+#echo "arg_count=$#"
+#echo "force=${_force}"
+#echo "prompt=${_prompt}"
+#echo "germ_command=${_germ_command}"
+#echo "germ_subcommand=${_germ_subcommand}"
+#echo "germ_subcommand_args=${_germ_subcommand_args[@]}"
+
+exit
+}
