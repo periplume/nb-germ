@@ -5,7 +5,7 @@
 # A plugin for `nb` providing a "germ" notebook interface for easy idea entry
 #
 # Install with:
-#   nb plugin install https://github.com/blah
+#   nb plugin install https://github.com/periplume/nb-germ/blob/master/nb-germ.plugin
 #
 # https://github.com/xwmx/nb
 ###############################################################################
@@ -20,7 +20,7 @@ Usage:
   nb germ add [<tag1> <tag...>]
 	nb germ edit (<id> | <filename> | <path> | <title>)
   nb germ init
-  nb germ list
+  nb germ (list | ls)
   nb germ print [last|<index>]
   nb germ promote
   nb germ source (add|edit|print)
@@ -60,14 +60,14 @@ _germ() {
 			*)
 				if [[ -z "${_germ_command}" ]]
 				then
-					# set all germ commands here
+					# set all germ commands and aliases here
 					if [[ "${__arg}" =~	^list$|^ls$|^init$|^add$|^edit$|^source$|^tags$|^thresh$|^promote$|^print$ ]]
 					then
 						_germ_command="${__arg}"
 					fi
 				elif [[ ! -z "${_germ_command}" ]] && [[ -z "${_germ_subcommand}" ]]
 				then
-					# set all subcommand options here
+					# define all subcommands per germ command here
 					case "${_germ_command}" in
 						add)
 							if [[ "${__arg:-}" =~ ^special$ ]]
