@@ -188,10 +188,11 @@ _germ() {
 			;;
 
 		edit)
-      echo "edit: check for _force and _interactive"
-      echo "edit: open in editor" 
-      exit
+			nb germ:edit "${_germ_subcommand_args}"
+			# check if tag list is changed
+			# update metadata line
       ;;
+
     init)
       if ((_prompt)) && ! ((_force))
       then
@@ -229,8 +230,7 @@ _germ() {
 			nb germ:ls
 			;;
     print)
-      echo "print: not yet implemented"
-      exit
+			nb germ:show -p "${_germ_subcommand_args}"
       ;;
     promote)
       echo "promote: not yet implemented"
@@ -343,19 +343,12 @@ _germ() {
 						done
 					fi
 					__new_source_line="${__new_source}.${__new_source_date}:${__new_source_description}"
-					#_temp="$(mktemp)"
 					if [[ "${__new_source_default}" = "y" ]]
 					then
-						#printf "${__new_source_line}\\n" >> "${_temp}"
-						#nb germ:show 1 --no-color --print >> "${_temp}"
 						nb germ:edit 1 --prepend --content "${__new_source_line}" 
 					else
-						#nb germ:show 1 --no-color --print >> "${_temp}"
-						#printf "${__new_source_line}\\n" >> "${_temp}"
 						printf "${__new_source_line}\\n" |  nb germ:edit 1
 					fi
-					#cat "${_temp}" > "$(nb germ:show 1 --path)"
-					#nb git commit
 					;;
 				edit)
 					nb germ:edit 1
@@ -399,17 +392,5 @@ _germ() {
       _exit_1 printf "Error: germ command '$_germ_command' unknown.\\n"
       exit 1
   esac
-
-# debug
-#echo "=====debug======"
-#echo "timestamp=${_timestamp}"
-#echo "arg_list=${@}"
-#echo "arg_count=$#"
-#echo "force=${_force}"
-#echo "prompt=${_prompt}"
-#echo "germ_command=${_germ_command}"
-#echo "germ_subcommand=${_germ_subcommand}"
-#echo "germ_subcommand_args=${_germ_subcommand_args[@]}"
-
 exit
 }
