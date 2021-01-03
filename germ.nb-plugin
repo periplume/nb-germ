@@ -29,7 +29,7 @@ Usage:
   nb germ tags (add|edit|list)
   nb germ thresh
 	nb germ:*       <-- access to all nb commands, eg:
-	nb germ:show (<id> | <filename> | <path> | <title> )
+	nb germ:show (<id> | <filename> | <path> | <title>)
 
 Options:
   --force
@@ -41,15 +41,16 @@ Description:
 HEREDOC
 
 _germ() {
-	local _timestamp=$(date '+%F--%I-%M-%S-%P')
 	local _force=0
 	local _prompt=1
 	local _germ_command=
 	local _germ_subcommand=
 	local _germ_subcommand_args=()
+	local _source_log="source.log"
+	local _tag_log="tag.log"
 
 	# process flags and germ commands first
-	#echo "germ_arguments= ${@}"
+	_debug echo "germ_arguments= ${@}"
 	for __arg in "${@}"
 	do
 		case "${__arg}" in
@@ -148,9 +149,9 @@ _germ() {
 		esac
 	done
 	# === debug ===
-	#echo "germ_command= ${_germ_command}"
-	#echo "germ_subcommand= ${_germ_subcommand}"
-	#echo "germ_subcommand_args= ${_germ_subcommand_args[@]}"
+	_debug echo "germ_command= ${_germ_command}"
+	_debug echo "germ_subcommand= ${_germ_subcommand}"
+	_debug echo "germ_subcommand_args= ${_germ_subcommand_args[@]}"
 
 	# print help if no arguments (or illegal command)
   [[ -z "${_germ_command:-}" ]] && _help -p "germ" 1>&2 && exit
@@ -159,15 +160,18 @@ _germ() {
   case "${_germ_command}" in
     add)
 			local _taglist=()
-			local _prepend="#tags"
-			local _source_override=
+			local _prepend="#"
+			local _timestamp=$(date '+%F--%I-%M-%S-%P')
+			local _unix_seconds=$(date +%s)
+			local _new_filename="${_timestamp}.txt"
 			
-			# catch source override keyword and build taglist
+			# catch source override keyword (if present) and build taglist
 			if [[ -z "${_germ_subcommand:-}" ]] && [[ "${_germ_subcommand_args[0]:-}" == "source" ]]
 			then
-				_source_override="${_germ_subcommand_args[1]:-}"
+				__source_tag="${_germ_subcommand_args[1]:-}"
 				_taglist="${_germ_subcommand_args[@]:2}"
 			else
+				__source_tag=$(nb germ:show "${_source_log}" --no-color --print | head -1 | cut -f1 -d:)
 				_taglist="${_germ_subcommand_args[@]:-}"
 			fi
 			
@@ -177,41 +181,27 @@ _germ() {
         _exit_1 printf "germ notebook missing...run 'germ init'\\n"
 			fi
 
-			# check for tags in the args
+			# check for tags in the args then format _prepend
 			if [[ -z "${_taglist:-}" ]]
 			then
-				_taglist="untagged"
+				_prepend="${_prepend} untagged"
+			else
+				for __tag in "${_taglist[@]}"
+				do
+					_prepend="${_prepend} ${__tag}"
+				done
 			fi
 
-			# format tag list with hash prefix (defined as $_prepend)
-			for __tag in "${_taglist[@]}"
-			do
-				_prepend="${_prepend} ${__tag} "
-			done
-			
-			# trim trailing whitespace
-			_prepend="${_prepend%"${_prepend##*[![:space:]]}"}"
-		
 			# create a new entry
-			nb germ:add --content "${_prepend}" --edit -f "${_timestamp}.txt"
+			nb germ:add --content "${_prepend}" --edit -f "${_new_filename}"
 			
 			# then append the source tag to the file
-			if [[ -z "${_source_override}" ]]
-			then
-				__source_tag=$(nb germ:show sources.db --no-color --print | head -1 | cut -f1 -d:)
-			else
-				__source_tag="${_source_override}"
-			fi
-			printf "\\n#src ${__source_tag}\\n" | nb germ:edit "${_timestamp}.txt"	
+			printf "\\n#src ${__source_tag}\\n" | nb germ:edit "${_new_filename}"
 
-			# then append the final tag list to the tags.log
-			__tag_list=$(nb germ:show "${_timestamp}.txt" --no-color --print | grep ^#tags | cut -f2 -d'#')
-			printf "#ts:${_timestamp} ${__tag_list}\\n" | nb germ:edit tags.log
+			# then append the final tag list to the tag log
+			__tag_list=$(nb germ:show "${_new_filename}" --no-color --print | head -1 | cut -f2 -d'#')
+			printf "${_unix_seconds} ${_germ_command} ${_new_filename} ${__tag_list}\\n" | nb germ:edit "${_tag_log}"
 
-			# then touch the sources.db file to force it to index 1 (for display)
-			printf " \\b" | nb germ:edit sources.db
-			# this needs fixing...newlines pile up on the bottom of the file...bad
-			# printf a newline, then a backspace?
 			;;
 
 		edit)
@@ -246,15 +236,17 @@ _germ() {
         printf "Creating germ notebook...\\n"
         _notebooks add germ
         printf "Creating sources database file...\\n"
-        nb germ:add --content "self:direct entry" -f sources.db
-				nb germ:add --content "tags" -f tags.log
+        nb germ:add --content "self:direct entry" -f "${_source_log}"
+				nb germ:add --content "#taglog" -f "${_tag_log}"
         printf "To add additional sources, run 'nb germ source add'.\\n"
 				printf "To add content, run 'nb germ add [optional tag list]'.\\n"
       fi
       exit
       ;;
 		list|ls)
-			nb germ:ls
+			printf "================= germ ==================\\n"
+			printf "default source: %s\\n" $(nb germ:show ${_source_log} -p | head -1 | cut -f1 -d:)
+			nb germ:ls --no-header
 			;;
     print)
 			nb germ:show -p "${_germ_subcommand_args}"
@@ -268,7 +260,7 @@ _germ() {
 			then
 				printf "use 'germ source' to add and manage source media list:\\n"
 				printf "usage: 'germ source add'\\n"
-				nb germ:show --print sources.db
+				nb germ:show --print "${_source_log}"
 				exit 0
 			fi
 			case "${_germ_subcommand:-}" in
@@ -372,22 +364,21 @@ _germ() {
 					__new_source_line="${__new_source}.${__new_source_date}:${__new_source_description}"
 					if [[ "${__new_source_default}" = "y" ]]
 					then
-						#nb germ:edit 1 --prepend --content "${__new_source_line}" 
-						nb germ:edit sources.db --prepend --content "${__new_source_line}" 
+						nb germ:edit "${_source_log}" --prepend --content "${__new_source_line}" 
 					else
-						printf "${__new_source_line}\\n" |  nb germ:edit sources.db
+						printf "${__new_source_line}\\n" |  nb germ:edit "${_source_log}"
 					fi
 					;;
 				edit)
-					nb germ:edit sources.db
+					nb germ:edit "${_source_log}"
 					;;
 				print)
 					case "${_germ_subcommand_args:-}" in
 						default)
-							nb germ:show -p sources.db | head -1
+							nb germ:show -p "${_source_log}" | head -1
 							;;
 						*)
-							nb germ:show -p sources.db
+							nb germ:show -p "${_source_log}"
 							;;
 					esac
 					;;
