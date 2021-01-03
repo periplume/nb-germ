@@ -5,9 +5,10 @@
 # A plugin for `nb` providing a "germ" notebook interface for easy idea entry
 #
 # Install with:
-#   nb plugin install https://github.com/periplume/nb-germ/blob/master/germ.nb-plugin
+# $ nb plugin install https://github.com/periplume/nb-germ/blob/master/germ.nb-plugin
 #
-# https://github.com/xwmx/nb
+# germ:  https://github.com/periplume/nb-germ
+# nb:    https://github.com/xwmx/nb
 ###############################################################################
 
 # Add the new subcommand names with `_subcommands add <name>`.
@@ -17,7 +18,8 @@ _subcommands add "germ"
 _subcommands describe "germ" <<HEREDOC
 Usage:
   nb germ
-  nb germ add [<tag1> <tag...>]
+  nb germ add [<tag1> <tag2> ...]
+	nb germ add source (<source>) [<tag1> <tag2> ...]
   nb germ edit (<id> | <filename> | <path> | <title>)
   nb germ init
   nb germ (list | ls)
@@ -45,9 +47,12 @@ _germ() {
 	local _germ_subcommand_args=()
 
 	# process flags and germ commands first
+	# === debug ===
+	#echo "germ_arguments= ${@}"
 	for __arg in "${@}"
 	do
 		case "${__arg}" in
+			# check for germ global options
 			--force)
 				_force=1
 				;;
@@ -58,6 +63,7 @@ _germ() {
 				_help ${_ME}
 				;;
 			*)
+				# everything else
 				if [[ -z "${_germ_command}" ]]
 				then
 					# set all germ commands and aliases here
@@ -140,6 +146,10 @@ _germ() {
 				;;
 		esac
 	done
+	# === debug ===
+	echo "germ_command= ${_germ_command}"
+	echo "germ_subcommand= ${_germ_subcommand}"
+	echo "germ_subcommand_args= ${_germ_subcommand_args[@]}"
 
 	# print help if no arguments (or illegal command)
   [[ -z "${_germ_command:-}" ]] && _help -p "germ" 1>&2 && exit
@@ -147,8 +157,18 @@ _germ() {
   # process subcommand args
   case "${_germ_command}" in
     add)
+			local _taglist=()
 			local _prepend="#tags"
-			local _taglist="${_germ_subcommand_args[@]:-}"
+			local _source_override=
+			
+			# catch source override keyword and build taglist
+			if [[ -z "${_germ_subcommand:-}" ]] && [[ "${_germ_subcommand_args[0]:-}" == "source" ]]
+			then
+				_source_override="${_germ_subcommand_args[1]:-}"
+				_taglist="${_germ_subcommand_args[@]:2}"
+			else
+				_taglist="${_germ_subcommand_args[@]:-}"
+			fi
 			
 			# make sure germ has been initialized		
 			if ! (_notebooks show germ &>/dev/null)
@@ -175,7 +195,12 @@ _germ() {
 			nb germ:add --content "${_prepend}" --edit -f "${_timestamp}.txt"
 			
 			# then append the source tag to the file
-			__source_tag=$(nb germ:show sourcesdb.txt --no-color --print | head -1 | cut -f1 -d:)
+			if [[ -z "${_source_override}" ]]
+			then
+				__source_tag=$(nb germ:show sourcesdb.txt --no-color --print | head -1 | cut -f1 -d:)
+			else
+				__source_tag="${_source_override}"
+			fi
 			printf "\\n#src ${__source_tag}\\n" | nb germ:edit "${_timestamp}.txt"	
 
 			# then append the final tag list to the tagsdb.txt
@@ -385,7 +410,20 @@ _germ() {
 			esac
 			;;
     thresh)
-      echo "thresh: not implemented"
+			local _taglist=()
+			#echo ". ${@}"
+			#echo "0 ${_germ_subcommand_args[@]}"
+			#echo "a ${_germ_subcommand_args[1]:-}"
+			#echo "t ${_germ_subcommand_args[@]:2}"
+			if [[ -z "${_germ_subcommand:-}" ]] && [[ "${_germ_subcommand_args[0]:-}" == "source" ]]
+			then
+				_source_override="${_germ_subcommand_args[1]:-}"
+				_taglist="${_germ_subcommand_args[@]:2}"
+			else
+				_taglist="${_germ_subcommand_args[@]}"
+			fi
+			echo "a ${_source_override}"
+			echo "b ${_taglist}"
       exit
       ;;
     *)
