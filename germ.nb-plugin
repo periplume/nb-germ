@@ -28,6 +28,8 @@ Usage:
   nb germ source (add|edit|print)
   nb germ tags (add|edit|list)
   nb germ thresh
+	nb germ:*       <-- access to all nb commands, eg:
+	nb germ:show (<id> | <filename> | <path> | <title> )
 
 Options:
   --force
@@ -47,7 +49,6 @@ _germ() {
 	local _germ_subcommand_args=()
 
 	# process flags and germ commands first
-	# === debug ===
 	#echo "germ_arguments= ${@}"
 	for __arg in "${@}"
 	do
@@ -147,9 +148,9 @@ _germ() {
 		esac
 	done
 	# === debug ===
-	echo "germ_command= ${_germ_command}"
-	echo "germ_subcommand= ${_germ_subcommand}"
-	echo "germ_subcommand_args= ${_germ_subcommand_args[@]}"
+	#echo "germ_command= ${_germ_command}"
+	#echo "germ_subcommand= ${_germ_subcommand}"
+	#echo "germ_subcommand_args= ${_germ_subcommand_args[@]}"
 
 	# print help if no arguments (or illegal command)
   [[ -z "${_germ_command:-}" ]] && _help -p "germ" 1>&2 && exit
@@ -197,18 +198,20 @@ _germ() {
 			# then append the source tag to the file
 			if [[ -z "${_source_override}" ]]
 			then
-				__source_tag=$(nb germ:show sourcesdb.txt --no-color --print | head -1 | cut -f1 -d:)
+				__source_tag=$(nb germ:show sources.db --no-color --print | head -1 | cut -f1 -d:)
 			else
 				__source_tag="${_source_override}"
 			fi
 			printf "\\n#src ${__source_tag}\\n" | nb germ:edit "${_timestamp}.txt"	
 
-			# then append the final tag list to the tagsdb.txt
+			# then append the final tag list to the tags.log
 			__tag_list=$(nb germ:show "${_timestamp}.txt" --no-color --print | grep ^#tags | cut -f2 -d'#')
-			printf "#ts:${_timestamp} ${__tag_list}\\n" | nb germ:edit tagsdb.txt	
+			printf "#ts:${_timestamp} ${__tag_list}\\n" | nb germ:edit tags.log
 
-			# then touch the sourcesdb.txt file to force it to index 1 (for display)
-			printf "\\n" | nb germ:edit sourcesdb.txt
+			# then touch the sources.db file to force it to index 1 (for display)
+			printf " \\b" | nb germ:edit sources.db
+			# this needs fixing...newlines pile up on the bottom of the file...bad
+			# printf a newline, then a backspace?
 			;;
 
 		edit)
@@ -240,11 +243,11 @@ _germ() {
         _exit_1 printf "germ notebook exists\\n"
         exit 1
       else
-        printf "Creating germ notebooki...\\n"
+        printf "Creating germ notebook...\\n"
         _notebooks add germ
         printf "Creating sources database file...\\n"
-        nb germ:add --content "self:direct entry" -f sourcesdb.txt
-				nb germ:add --content "tags" -f tagsdb.txt
+        nb germ:add --content "self:direct entry" -f sources.db
+				nb germ:add --content "tags" -f tags.log
         printf "To add additional sources, run 'nb germ source add'.\\n"
 				printf "To add content, run 'nb germ add [optional tag list]'.\\n"
       fi
@@ -265,7 +268,7 @@ _germ() {
 			then
 				printf "use 'germ source' to add and manage source media list:\\n"
 				printf "usage: 'germ source add'\\n"
-				nb germ:show --print sourcesdb.txt
+				nb germ:show --print sources.db
 				exit 0
 			fi
 			case "${_germ_subcommand:-}" in
@@ -370,21 +373,21 @@ _germ() {
 					if [[ "${__new_source_default}" = "y" ]]
 					then
 						#nb germ:edit 1 --prepend --content "${__new_source_line}" 
-						nb germ:edit sourcesdb.txt --prepend --content "${__new_source_line}" 
+						nb germ:edit sources.db --prepend --content "${__new_source_line}" 
 					else
-						printf "${__new_source_line}\\n" |  nb germ:edit sourcesdb.txt
+						printf "${__new_source_line}\\n" |  nb germ:edit sources.db
 					fi
 					;;
 				edit)
-					nb germ:edit sourcesdb.txt
+					nb germ:edit sources.db
 					;;
 				print)
 					case "${_germ_subcommand_args:-}" in
 						default)
-							nb germ:show -p sourcesdb.txt | head -1
+							nb germ:show -p sources.db | head -1
 							;;
 						*)
-							nb germ:show -p sourcesdb.txt
+							nb germ:show -p sources.db
 							;;
 					esac
 					;;
@@ -402,10 +405,10 @@ _germ() {
 					echo "edit tag list?"
 					;;
 				list)
-					nb germ:show tagsdb.txt -p
+					nb germ:show tags.log -p
 					;;
 				*)
-					nb germ:show tagsdb.txt -p
+					nb germ:show tags.log -p
 					;;
 			esac
 			;;
@@ -422,8 +425,8 @@ _germ() {
 			else
 				_taglist="${_germ_subcommand_args[@]}"
 			fi
-			echo "a ${_source_override}"
-			echo "b ${_taglist}"
+			#echo "_source_override ${_source_override:-}"
+			#echo "_taglist ${_taglist:-}"
       exit
       ;;
     *)
